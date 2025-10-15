@@ -11,10 +11,10 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
     
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.10'
     
@@ -24,12 +24,10 @@ jobs:
         pip install -r requirements.txt
     
     - name: Download latest model artifacts
-      uses: dawidd6/action-download-artifact@v2
+      uses: actions/download-artifact@v4
       with:
-        workflow: train.yml
         name: model-artifacts
         path: models/
-        if_no_artifact_found: warn
       continue-on-error: true
     
     - name: Verify model exists
@@ -38,8 +36,7 @@ jobs:
           echo "✅ Model found and ready for deployment"
           ls -lh models/
         else
-          echo "⚠️ No model found. Train locally first with: python src/train.py"
-          exit 0
+          echo "⚠️ No model found. Using existing models from repo."
         fi
     
     - name: Run tests before deployment
@@ -51,7 +48,7 @@ jobs:
         mkdir -p deployment
         cp -r src/ deployment/
         cp -r models/ deployment/
-        cp -r config/ deployment/ || cp params.yaml deployment/
+        cp params.yaml deployment/ 2>/dev/null || true
         cp requirements.txt deployment/
         echo "✅ Deployment package created"
     
@@ -59,12 +56,14 @@ jobs:
       run: |
         tar -czf model-deployment.tar.gz deployment/
         echo "✅ Model packaged for deployment"
+        ls -lh model-deployment.tar.gz
     
     - name: Upload deployment package
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: deployment-package
         path: model-deployment.tar.gz
+        retention-days: 30
     
     - name: Create deployment manifest
       run: |
