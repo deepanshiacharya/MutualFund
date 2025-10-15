@@ -18,7 +18,7 @@ mlartifacts/
 # models/*.pkl
 
 # Data
-data/raw/*.csv
+#data/raw/*.csv
 
 # IDE
 .vscode/

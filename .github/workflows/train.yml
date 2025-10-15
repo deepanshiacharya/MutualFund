@@ -3,6 +3,10 @@ name: Model Training Pipeline
 on:
   push:
     branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'params.yaml'
+      - 'requirements.txt'
   workflow_dispatch:
 
 jobs:
@@ -23,11 +27,23 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
     
+    - name: Check for dataset
+      id: check-data
+      run: |
+        if [ -f "data/raw/dataset.csv" ]; then
+          echo "data_exists=true" >> $GITHUB_OUTPUT
+        else
+          echo "data_exists=false" >> $GITHUB_OUTPUT
+          echo "⚠️ Dataset not found. Skipping training."
+        fi
+    
     - name: Train model
+      if: steps.check-data.outputs.data_exists == 'true'
       run: |
         python src/train.py
     
     - name: Evaluate model
+      if: steps.check-data.outputs.data_exists == 'true'
       run: |
         python src/evaluate.py
     
@@ -36,6 +52,7 @@ jobs:
         pytest tests/ -v
     
     - name: Upload model artifacts
+      if: steps.check-data.outputs.data_exists == 'true'
       uses: actions/upload-artifact@v3
       with:
         name: model-artifacts
@@ -43,10 +60,12 @@ jobs:
           models/*.pkl
           models/*.csv
           models/*.txt
+        retention-days: 30
     
-    - name: Generate report
+    - name: Generate training report
+      if: steps.check-data.outputs.data_exists == 'true'
       run: |
-        echo "## Model Training Report" >> $GITHUB_STEP_SUMMARY
+        echo "## 🎯 Model Training Report" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### Metrics" >> $GITHUB_STEP_SUMMARY
+        echo "### 📊 Metrics" >> $GITHUB_STEP_SUMMARY
         cat models/metrics.txt >> $GITHUB_STEP_SUMMARY
