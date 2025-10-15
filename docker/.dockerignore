@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+*.egg-info/
+dist/
+build/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Data
+data/raw/*
+!data/raw/.gitkeep
+
+# Models (except production)
+models/*.pkl
+mlruns/
+mlartifacts/
+
+# Logs
+logs/
+*.log
+
+# Git
+.git/
+.gitignore
+
+# Others
+.DS_Store
+.env
+*.db

@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# MLflow
+mlruns/
+mlartifacts/
+
+# Models (optional - comment out if you want to track models)
+# models/*.pkl
+
+# Data
+data/raw/*.csv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+
+# Logs
+*.log

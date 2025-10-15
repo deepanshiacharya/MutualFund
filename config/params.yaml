@@ -1,0 +1,32 @@
+data:
+  raw_data_path: "data/raw/dataset.csv"
+  processed_data_path: "data/processed/"
+  test_size: 0.2
+  random_state: 42
+  target_column: "3 Year Return"
+
+preprocessing:
+  scaling_method: "standard"
+  
+model:
+  algorithm: "RandomForest"
+  n_estimators: [100, 200, 300]
+  max_depth: [null, 5, 10]
+  min_samples_split: [2, 5, 10]
+  min_samples_leaf: [1, 2, 4]
+  cv_folds: 5
+
+mlflow:
+  experiment_name: "stock_return_prediction"
+  tracking_uri: "http://localhost:5000"
+  model_name: "rf_stock_predictor"
+
+monitoring:
+  data_drift_threshold: 0.1
+  performance_threshold:
+    r2_min: 0.7
+    mse_max: 100
+
+api:
+  host: "0.0.0.0"
+  port: 8000

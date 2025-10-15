@@ -1,0 +1,150 @@
+name: CD - Continuous Deployment
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy-staging:
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Set up DVC
+        uses: iterative/setup-dvc@v1
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Pull data and models
+        run: dvc pull
+
+      - name: Build Docker images
+        run: |
+          docker build -f docker/Dockerfile.serving -t mlops-serving:staging .
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Tag and push to ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: mlops-serving
+          IMAGE_TAG: staging-${{ github.sha }}
+        run: |
+          docker tag mlops-serving:staging $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+      - name: Deploy to ECS Staging
+        run: |
+          aws ecs update-service \
+            --cluster mlops-staging \
+            --service model-serving \
+            --force-new-deployment
+
+      - name: Run smoke tests
+        run: |
+          sleep 30
+          python tests/test_api_endpoints.py --env staging
+
+  deploy-production:
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Build Docker image
+        run: |
+          docker build -f docker/Dockerfile.serving -t mlops-serving:production .
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Tag and push to ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: mlops-serving
+          IMAGE_TAG: prod-${{ github.sha }}
+        run: |
+          docker tag mlops-serving:production $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker tag mlops-serving:production $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+      - name: Deploy to ECS Production
+        run: |
+          aws ecs update-service \
+            --cluster mlops-production \
+            --service model-serving \
+            --force-new-deployment
+
+      - name: Wait for deployment
+        run: |
+          aws ecs wait services-stable \
+            --cluster mlops-production \
+            --services model-serving
+
+      - name: Run integration tests
+        run: |
+          python tests/test_api_endpoints.py --env production
+
+      - name: Notify deployment
+        run: |
+          echo "Deployment successful to production"
+
+  monitor-deployment:
+    runs-on: ubuntu-latest
+    needs: deploy-production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run monitoring checks
+        run: |
+          python src/monitoring.py --check-production
+
+      - name: Generate monitoring report
+        run: |
+          python scripts/generate_monitoring_report.py

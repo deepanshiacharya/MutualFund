@@ -1,0 +1,6 @@
+# Add patterns of files dvc should ignore
+*.pyc
+__pycache__/
+.pytest_cache/
+*.log
+.DS_Store

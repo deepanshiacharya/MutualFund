@@ -1,0 +1,12 @@
+paths:
+  models_dir: "models/"
+  logs_dir: "logs/"
+  artifacts_dir: "mlruns/"
+
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+deployment:
+  stage: "production"
+  deployment_type: "rolling"
